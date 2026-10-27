@@ -23,7 +23,12 @@ export async function POST(request: NextRequest) {
     const { data: existing } = await admin.from("enrollments").select("id").eq("user_id", auth.user.id).eq("course_id", course.id).eq("status", "active").maybeSingle();
     if (existing) return NextResponse.json({ enrolled: true, message: "You already own this course." });
     const amount = Number(course.price_inr || 0) * 100;
-    if (!Number.isSafeInteger(amount) || amount < 100) return NextResponse.json({ error: "This course has no valid paid price. Set price_inr to at least ₹1." }, { status: 400 });
+    if (!Number.isSafeInteger(amount) || amount < 0) return NextResponse.json({ error: "This course has an invalid price." }, { status: 400 });
+    if (amount === 0) {
+      const { error: enrollError } = await admin.from("enrollments").upsert({ user_id: auth.user.id, course_id: course.id, status: "active" }, { onConflict: "user_id,course_id" });
+      if (enrollError) return NextResponse.json({ error: "Could not enroll in the free course." }, { status: 500 });
+      return NextResponse.json({ enrolled: true, message: "You are enrolled in this free course." });
+    }
     const orderResponse = await fetch("https://api.razorpay.com/v1/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Basic " + Buffer.from(keyId + ":" + keySecret).toString("base64") },
