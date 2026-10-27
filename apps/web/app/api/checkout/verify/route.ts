@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
         headers: { Authorization: "Basic " + Buffer.from(keyId + ":" + secret).toString("base64") }, cache: "no-store"
       });
       const payment = await paymentResponse.json();
-      if (!paymentResponse.ok || payment.order_id !== orderId || payment.amount !== order.amount_paise || payment.currency !== "INR" || !["captured", "authorized"].includes(payment.status)) {
+      if (!paymentResponse.ok || payment.order_id !== orderId || payment.amount !== order.amount_paise || payment.currency !== "INR" || payment.status !== "captured") {
         return NextResponse.json({ error: "Payment is not verified/captured yet." }, { status: 400 });
       }
       const { error: enrollmentError } = await admin.from("enrollments").upsert({ user_id: auth.user.id, course_id: order.course_id, status: "active" }, { onConflict: "user_id,course_id" });
