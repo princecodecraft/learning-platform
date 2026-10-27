@@ -1,0 +1,10 @@
+"use client";
+import { FormEvent,useState } from "react";
+import Link from "next/link";
+import { useRouter,useSearchParams } from "next/navigation";
+import { getSupabase } from "../../lib/supabase";
+export default function DashboardLogin(){
+ const router=useRouter();const params=useSearchParams();const[email,setEmail]=useState("");const[password,setPassword]=useState("");const[message,setMessage]=useState("");const[busy,setBusy]=useState(false);
+ async function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();setMessage("");const s=getSupabase();if(!s){setMessage("Add the Supabase URL and anon key to Vercel dashboard environment variables.");return;}setBusy(true);try{const{data,error}=await s.auth.signInWithPassword({email,password});if(error)throw error;const{data:profile}=await s.from("profiles").select("role").eq("id",data.user.id).single();if(profile?.role!=="admin"){await s.auth.signOut();throw new Error("This account does not have administrator access.");}router.replace(params.get("next")||"/");}catch(err){setMessage(err instanceof Error?err.message:"Login failed.");}finally{setBusy(false);}}
+ return <main className="auth-shell"><section className="auth-card"><Link className="admin-brand" href="/">skill<span>spring</span><i>.</i></Link><div className="admin-eyebrow" style={{marginTop:28}}>SECURE ADMIN AREA</div><h1>Dashboard sign in</h1><p>Manage courses, video lessons, learners and payments.</p>{message&&<div className="notice error-notice">{message}</div>}<form className="auth-form" onSubmit={submit}><label>Email address<input type="email" value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="email"/></label><label>Password<input type="password" value={password} onChange={e=>setPassword(e.target.value)} required autoComplete="current-password"/></label><button className="admin-button" disabled={busy}>{busy?"Signing in…":"Sign in to dashboard →"}</button></form><p className="muted" style={{marginTop:22}}>Admin accounts are created through the public sign-up flow, then granted the admin role in Supabase.</p></section></main>;
+}
