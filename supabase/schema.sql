@@ -1,0 +1,64 @@
+-- SkillSpring core schema. Run in Supabase SQL Editor.
+create extension if not exists pgcrypto;
+
+create table if not exists public.courses (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  slug text unique,
+  description text,
+  category text,
+  thumbnail_url text,
+  price_inr integer not null default 0 check (price_inr >= 0),
+  published boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.lessons (
+  id uuid primary key default gen_random_uuid(),
+  course_id uuid not null references public.courses(id) on delete cascade,
+  title text not null,
+  description text,
+  video_url text,
+  position integer not null default 0,
+  is_preview boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.enrollments (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  course_id uuid not null references public.courses(id) on delete cascade,
+  status text not null default 'active' check (status in ('active','refunded','revoked')),
+  created_at timestamptz not null default now(),
+  unique(user_id, course_id)
+);
+
+create table if not exists public.checkout_orders (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  course_id uuid not null references public.courses(id) on delete restrict,
+  razorpay_order_id text not null unique,
+  amount_paise integer not null check (amount_paise >= 0),
+  status text not null default 'created' check (status in ('created','paid','failed')),
+  created_at timestamptz not null default now()
+);
+
+alter table public.courses enable row level security;
+alter table public.lessons enable row level security;
+alter table public.enrollments enable row level security;
+alter table public.checkout_orders enable row level security;
+
+drop policy if exists "Published courses are viewable" on public.courses;
+create policy "Published courses are viewable" on public.courses for select using (published = true);
+drop policy if exists "Published lessons or previews are viewable" on public.lessons;
+create policy "Published lessons or previews are viewable" on public.lessons for select using (
+  is_preview = true or exists (select 1 from public.courses c where c.id = course_id and c.published = true)
+  and exists (select 1 from public.enrollments e where e.course_id = lessons.course_id and e.user_id = auth.uid() and e.status = 'active')
+);
+drop policy if exists "Users can view their own enrollments" on public.enrollments;
+create policy "Users can view their own enrollments" on public.enrollments for select using (user_id = auth.uid());
+drop policy if exists "Users can view their own checkout orders" on public.checkout_orders;
+create policy "Users can view their own checkout orders" on public.checkout_orders for select using (user_id = auth.uid());
+-- Do not add client INSERT/UPDATE policies for enrollments or checkout_orders.
+-- The server uses the Supabase service-role key after verifying Razorpay payment.
