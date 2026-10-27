@@ -62,3 +62,41 @@ drop policy if exists "Users can view their own checkout orders" on public.check
 create policy "Users can view their own checkout orders" on public.checkout_orders for select using (user_id = auth.uid());
 -- Do not add client INSERT/UPDATE policies for enrollments or checkout_orders.
 -- The server uses the Supabase service-role key after verifying Razorpay payment.
+
+
+-- Creator/admin access. After signing up, promote your own account using:
+-- update public.profiles set role = 'admin'
+-- where id = (select id from auth.users where email = 'YOUR_LOGIN_EMAIL');
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  full_name text,
+  role text not null default 'student' check (role in ('student','admin')),
+  created_at timestamptz not null default now()
+);
+alter table public.profiles enable row level security;
+drop policy if exists "Users can read own profile" on public.profiles;
+create policy "Users can read own profile" on public.profiles for select using (id = auth.uid());
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.profiles(id, full_name) values (new.id, new.raw_user_meta_data->>'full_name')
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created after insert on auth.users
+for each row execute procedure public.handle_new_user();
+
+drop policy if exists "Admins can manage courses" on public.courses;
+create policy "Admins can manage courses" on public.courses for all using (
+  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+) with check (
+  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+);
+drop policy if exists "Admins can manage lessons" on public.lessons;
+create policy "Admins can manage lessons" on public.lessons for all using (
+  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+) with check (
+  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+);
