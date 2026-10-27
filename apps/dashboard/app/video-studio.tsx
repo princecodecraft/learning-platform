@@ -1,5 +1,5 @@
 "use client";
-import { ChangeEvent, FormEvent, useState } from "react";
+import { useState } from "react";\nimport type { ChangeEvent, FormEvent } from "react";
 export default function VideoStudio() {
  const [file, setFile] = useState<File | null>(null);
  const [title, setTitle] = useState("");
