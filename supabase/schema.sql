@@ -100,3 +100,52 @@ create policy "Admins can manage lessons" on public.lessons for all using (
 ) with check (
   exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
 );
+
+
+-- Admin dashboard access and learner email fields.
+alter table public.profiles add column if not exists email text;
+update public.profiles p set email = u.email
+from auth.users u where u.id = p.id and p.email is distinct from u.email;
+
+create or replace function public.is_admin(check_user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (select 1 from public.profiles p where p.id = check_user_id and p.role = 'admin');
+$$;
+revoke all on function public.is_admin(uuid) from public;
+grant execute on function public.is_admin(uuid) to authenticated;
+
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.profiles(id, full_name, email)
+  values (new.id, new.raw_user_meta_data->>'full_name', new.email)
+  on conflict (id) do update set email = excluded.email;
+  return new;
+end;
+$$;
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created after insert or update of email on auth.users
+for each row execute procedure public.handle_new_user();
+
+drop policy if exists "Users can read own profile" on public.profiles;
+create policy "Users can read own profile" on public.profiles for select to authenticated
+using (id = auth.uid() or public.is_admin(auth.uid()));
+drop policy if exists "Admins can update profiles" on public.profiles;
+create policy "Admins can update profiles" on public.profiles for update to authenticated
+using (public.is_admin(auth.uid())) with check (public.is_admin(auth.uid()));
+
+drop policy if exists "Admins can manage courses" on public.courses;
+create policy "Admins can manage courses" on public.courses for all to authenticated
+using (public.is_admin(auth.uid())) with check (public.is_admin(auth.uid()));
+drop policy if exists "Admins can manage lessons" on public.lessons;
+create policy "Admins can manage lessons" on public.lessons for all to authenticated
+using (public.is_admin(auth.uid())) with check (public.is_admin(auth.uid()));
+
+drop policy if exists "Admins can view all checkout orders" on public.checkout_orders;
+create policy "Admins can view all checkout orders" on public.checkout_orders for select to authenticated
+using (public.is_admin(auth.uid()));
