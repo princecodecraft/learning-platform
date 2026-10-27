@@ -1,18 +1,19 @@
 import { Controller, Get, NotFoundException, Param } from "@nestjs/common";
-// Temporary sample data; replace with repository-backed database queries before production.
-const courses = [
- { id: "web-foundations", slug: "web-foundations", title: "Modern Web Development", description: "Build accessible, responsive web experiences.", level: "beginner", published: true },
- { id: "backend-engineering", slug: "backend-engineering", title: "Backend Engineering", description: "Design maintainable APIs and data models.", level: "intermediate", published: true },
- { id: "practical-ai", slug: "practical-ai", title: "Practical AI Applications", description: "Build retrieval-powered features and evaluate outputs.", level: "intermediate", published: true }
-];
+import { SupabaseService } from "./supabase.service";
 @Controller("courses")
 export class CoursesController {
+ constructor(private readonly supabase: SupabaseService) {}
  @Get()
- list() { return courses.filter(course => course.published); }
+ async list() {
+  const { data, error } = await this.supabase.db.from("courses").select("id,slug,title,description,price_minor,currency").eq("published", true).order("created_at", { ascending: false });
+  if (error) throw new Error("Unable to load courses");
+  return data ?? [];
+ }
  @Get(":slug")
- get(@Param("slug") slug: string) {
-  const course = courses.find(item => item.slug === slug && item.published);
-  if (!course) throw new NotFoundException("Course not found");
-  return course;
+ async get(@Param("slug") slug: string) {
+  const { data, error } = await this.supabase.db.from("courses").select("id,slug,title,description,price_minor,currency").eq("published", true).eq("slug", slug).maybeSingle();
+  if (error) throw new Error("Unable to load course");
+  if (!data) throw new NotFoundException("Course not found");
+  return data;
  }
 }
