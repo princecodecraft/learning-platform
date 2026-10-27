@@ -1,9 +1,4 @@
 import CourseHighlights from "./course-highlights";
-const courses = [
-  { category: "FRONTEND", title: "React from Zero to Pro", description: "Understand React deeply, build reusable interfaces, and ship projects that feel production-ready.", lessons: "28 lessons", tone: "peach", mark: "R" },
-  { category: "BACKEND", title: "Node.js Engineering", description: "Build APIs, authentication, databases, queues, and reliable backend services.", lessons: "22 lessons", tone: "lavender", mark: "N" },
-  { category: "AI & SYSTEM DESIGN", title: "Build AI-powered Apps", description: "Learn RAG, LLM integration, system design, and practical product architecture.", lessons: "16 lessons", tone: "mint", mark: "AI" },
-];
 const features = [
   { icon: "▶", title: "Learn at your pace", text: "Watch lessons whenever you want, from any device." },
   { icon: "⌘", title: "Build real projects", text: "Turn concepts into practical work you can show." },
