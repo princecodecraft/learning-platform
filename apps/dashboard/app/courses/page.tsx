@@ -1,15 +1,14 @@
 "use client";
 import { FormEvent,useEffect,useState } from "react";
-import { useSearchParams } from "next/navigation";
 import AdminFrame from "../admin-frame";
 import { getSupabase } from "../../lib/supabase";
 type Course={id:string;title:string;slug:string|null;description:string|null;category:string|null;price_inr:number;published:boolean;created_at:string};
 const blank={title:"",slug:"",description:"",category:"Frontend",price_inr:"0",published:false};
 export default function CoursesAdmin(){
- const params=useSearchParams();const[rows,setRows]=useState<Course[]>([]);const[form,setForm]=useState(blank);const[editing,setEditing]=useState("");const[busy,setBusy]=useState(false);const[message,setMessage]=useState("");
+ const[rows,setRows]=useState<Course[]>([]);const[form,setForm]=useState(blank);const[editing,setEditing]=useState("");const[busy,setBusy]=useState(false);const[message,setMessage]=useState("");
  async function load(){const s=getSupabase();if(!s)return;const{data,error}=await s.from("courses").select("*").order("created_at",{ascending:false});if(error)setMessage(error.message);else setRows((data||[]) as Course[]);}
  useEffect(()=>{load()},[]);
- useEffect(()=>{const id=params.get("edit");if(id&&rows.length){const c=rows.find(r=>r.id===id);if(c){setEditing(c.id);setForm({title:c.title,slug:c.slug||"",description:c.description||"",category:c.category||"Other",price_inr:String(c.price_inr),published:c.published});}}},[params,rows]);
+ useEffect(()=>{const id=new URLSearchParams(window.location.search).get("edit");if(id&&rows.length){const c=rows.find(r=>r.id===id);if(c){setEditing(c.id);setForm({title:c.title,slug:c.slug||"",description:c.description||"",category:c.category||"Other",price_inr:String(c.price_inr),published:c.published});}}},[rows]);
  function edit(c:Course){setEditing(c.id);setForm({title:c.title,slug:c.slug||"",description:c.description||"",category:c.category||"Other",price_inr:String(c.price_inr),published:c.published});window.scrollTo({top:0,behavior:"smooth"});}
  function reset(){setEditing("");setForm(blank);}
  async function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();const s=getSupabase();if(!s)return;setBusy(true);setMessage("");const payload={title:form.title.trim(),slug:(form.slug||form.title).toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,""),description:form.description,category:form.category,price_inr:Number(form.price_inr),published:form.published,updated_at:new Date().toISOString()};const result=editing?await s.from("courses").update(payload).eq("id",editing):await s.from("courses").insert(payload);if(result.error)setMessage(result.error.message);else{setMessage(editing?"Course updated.":"Course created.");reset();await load();}setBusy(false);}
