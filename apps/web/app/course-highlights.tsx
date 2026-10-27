@@ -1,0 +1,13 @@
+"use client";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { getSupabase } from "../lib/supabase";
+type Course={id:string;title:string;description?:string|null;category?:string|null;price_inr?:number|null;published?:boolean|null};
+const tones=["peach","lavender","mint"];
+const marks=["JS","R","N","TS","AI"];
+export default function CourseHighlights(){
+ const[courses,setCourses]=useState<Course[]>([]);
+ useEffect(()=>{let active=true;const supabase=getSupabase();if(!supabase)return;supabase.from("courses").select("id,title,description,category,price_inr,published").eq("published",true).order("created_at",{ascending:false}).limit(3).then(({data})=>{if(active&&data)setCourses(data as Course[])});return()=>{active=false}},[]);
+ if(!courses.length)return <div className="course-grid">{[{title:"React from Zero to Pro",category:"FRONTEND",description:"Learn component design, state, hooks, and build practical interfaces.",id:"react"},{title:"Node.js Engineering",category:"BACKEND",description:"Build APIs, authentication, and reliable backend services.",id:"node"},{title:"Build AI-powered Apps",category:"AI & SYSTEM DESIGN",description:"Explore LLMs, RAG, and practical product architecture.",id:"ai"}].map((c,i)=><article className="course-card" key={c.id}><div className={"course-art "+tones[i]}><div className="course-art-grid"></div><span className="course-mark">{marks[i]}</span><span className="course-art-label">SKILLSPRING / LEARN</span><span className="course-play">▶</span></div><div className="course-content"><div className="course-meta"><span className="course-category">{c.category}</span><span className="course-type">ON DEMAND</span></div><h3>{c.title}</h3><p>{c.description}</p><div className="course-bottom"><span>◷ Self-paced</span><Link href="/courses">Explore course <span>→</span></Link></div></div></article>)}</div>;
+ return <div className="course-grid">{courses.map((c,i)=><article className="course-card" key={c.id}><div className={"course-art "+tones[i%tones.length]}><div className="course-art-grid"></div><span className="course-mark">{marks[i%marks.length]}</span><span className="course-art-label">SKILLSPRING / LEARN</span><span className="course-play">▶</span></div><div className="course-content"><div className="course-meta"><span className="course-category">{c.category||"COURSE"}</span><span className="course-type">ON DEMAND</span></div><h3>{c.title}</h3><p>{c.description||"A practical, self-paced learning course."}</p><div className="course-bottom"><span>{c.price_inr==null?"Self-paced":Number(c.price_inr)===0?"Free":"₹"+Number(c.price_inr).toLocaleString("en-IN")}</span><Link href="/courses">Explore course <span>→</span></Link></div></div></article>)}</div>;
+}
