@@ -1,0 +1,15 @@
+"use client";
+import { ReactNode, useEffect, useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { getSupabase } from "../lib/supabase";
+const nav=[{href:"/",label:"Overview",icon:"▦"},{href:"/courses",label:"Courses",icon:"▤"},{href:"/videos",label:"Videos & lessons",icon:"▶"},{href:"/users",label:"Users",icon:"♙"},{href:"/payments",label:"Payments",icon:"₹"},{href:"/settings",label:"Settings",icon:"⚙"}];
+export default function AdminFrame({children}:{children:ReactNode}){
+ const pathname=usePathname();const router=useRouter();const[state,setState]=useState<"checking"|"admin"|"denied"|"setup">("checking");const[email,setEmail]=useState("");
+ useEffect(()=>{let active=true;async function check(){const supabase=getSupabase();if(!supabase){setState("setup");return;}const{data:{user}}=await supabase.auth.getUser();if(!user){router.replace("/login?next="+encodeURIComponent(pathname||"/"));return;}if(!active)return;setEmail(user.email||"");const{data:profile,error}=await supabase.from("profiles").select("role").eq("id",user.id).single();if(!active)return;if(error||profile?.role!=="admin"){setState("denied");return;}setState("admin");}check();return()=>{active=false}},[pathname,router]);
+ async function signOut(){const s=getSupabase();if(s)await s.auth.signOut();router.replace("/login");}
+ if(state==="checking")return <div className="admin-gate">Checking administrator access…</div>;
+ if(state==="setup")return <div className="admin-gate"><section className="gate-card"><h1>Dashboard setup required</h1><p>Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to the dashboard project's Vercel environment variables.</p></section></div>;
+ if(state==="denied")return <div className="admin-gate"><section className="gate-card"><h1>Administrator access required</h1><p>This dashboard is restricted to accounts with the admin role. Promote your account using the SQL instructions in <code>supabase/schema.sql</code>.</p><Link className="admin-button" href="/login">Switch account</Link></section></div>;
+ return <div className="admin-shell"><aside className="admin-sidebar"><Link className="admin-brand" href="/">skill<span>spring</span><i>.</i></Link><div className="sidebar-label">MANAGEMENT</div>{nav.map(item=><Link key={item.href} className={"side-link "+(pathname===item.href?"active":"")} href={item.href}><span>{item.icon}</span>{item.label}</Link>)}<div className="sidebar-bottom"><div className="creator-avatar">{email.slice(0,1).toUpperCase()}</div><div><strong>Administrator</strong><small>{email}</small></div></div></aside><main className="admin-main"><header className="admin-top"><div className="breadcrumb">SkillSpring <span>/</span> {nav.find(n=>n.href===pathname)?.label||"Management"}</div><div className="top-actions"><Link className="view-site" href={process.env.NEXT_PUBLIC_SITE_URL||"https://learning-platform-public.vercel.app"} target="_blank">↗ View website</Link><button className="admin-button secondary" onClick={signOut}>Sign out</button></div></header>{children}</main></div>;
+}
